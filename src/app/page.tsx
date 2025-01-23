@@ -86,16 +86,16 @@ const Home = () => {
       header: true,
       complete: (result) => {
         try {
-          const rows = result.data;
+          const rows = result.data as Array<Record<string, unknown>>;
           if (!Array.isArray(rows) || rows.length === 0) {
             throw new Error("The CSV file is empty or invalid.");
           }
 
-          const updatedRows: any[] = [];
+          const updatedRows: Array<Record<string, unknown>> = [];
           const missingColumns: string[] = [];
           const invalidColumns: string[] = [];
 
-          rows.forEach((row: any) => {
+          rows.forEach((row: Record<string, unknown>) => {
             const newRow = { ...row };
 
             columnNames.forEach((col) => {
@@ -103,7 +103,7 @@ const Home = () => {
                 if (!missingColumns.includes(col)) missingColumns.push(col);
               } else {
                 try {
-                  const jsonData = JSON.parse(row[col]);
+                  const jsonData = JSON.parse(row[col] as string);
                   Object.keys(jsonData).forEach((key) => {
                     newRow[`${col}_${key}`] = jsonData[key];
                   });
@@ -133,12 +133,10 @@ const Home = () => {
 
           const updatedCSV = Papa.unparse(updatedRows);
           setProcessedCSV(updatedCSV);
-          setSuccessMessage(
-            "File is ready to download!"
-          );
-        } catch (err: any) {
+          setSuccessMessage("File is ready to download!");
+        } catch (err: unknown) {
           setError(
-            err.message || "An error occurred while processing the CSV."
+            (err instanceof Error ? err.message : "An error occurred while processing the CSV.")
           );
         } finally {
           setIsLoading(false);
