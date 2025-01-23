@@ -134,7 +134,7 @@ const Home = () => {
           const updatedCSV = Papa.unparse(updatedRows);
           setProcessedCSV(updatedCSV);
           setSuccessMessage(
-            "CSV processed successfully! You can now download it."
+            "File is ready to download!"
           );
         } catch (err: any) {
           setError(
@@ -203,7 +203,7 @@ const Home = () => {
               className="flex items-center space-x-2 text-green-600 bg-green-100 dark:bg-green-800 dark:text-green-200 p-4 rounded-md"
             >
               <CheckCircle className="h-5 w-5" />
-              <span>File is ready to download!</span>
+              <span>{successMessage}</span>
             </motion.div>
           </AnimatePresence>
         )}
