@@ -4,8 +4,22 @@ import React, { useState } from "react";
 import Papa from "papaparse";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertCircle, CheckCircle, Plus, Trash, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion"; // Importing Shadcn accordion
+import {
+  AlertCircle,
+  CheckCircle,
+  Plus,
+  Trash,
+  Loader2,
+  RotateCw,
+  Wand,
+} from "lucide-react";
+import { motion } from "framer-motion";
 
 const Home = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -15,6 +29,16 @@ const Home = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const resetFields = () => {
+    setFile(null);
+    setColumnNames([]);
+    setProcessedCSV("");
+    setError(null);
+    setSuccessMessage(null);
+    setIsDragging(false);
+    setIsLoading(false);
+  };
 
   const handleFileUpload = (file: File) => {
     if (!file.name.endsWith(".csv")) {
@@ -33,21 +57,47 @@ const Home = () => {
     }
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFileUpload(e.dataTransfer.files[0]);
+  const detectJSONColumns = () => {
+    if (!file) {
+      setError("Please upload a file before using auto-detection.");
+      return;
     }
+
+    setIsLoading(true);
+    setError(null);
+
+    Papa.parse(file, {
+      header: true,
+      preview: 1,
+      complete: (result) => {
+        try {
+          const firstRow = result.data[0] as Record<string, string>;
+          const detectedColumns = Object.keys(firstRow).filter((key) => {
+            try {
+              JSON.parse(firstRow[key]);
+              return true;
+            } catch {
+              return false;
+            }
+          });
+
+          if (detectedColumns.length === 0) {
+            setError("No JSON columns were detected in the file.");
+          } else {
+            setColumnNames(detectedColumns);
+            setSuccessMessage("JSON columns auto-detected successfully!");
+          }
+        } catch {
+          setError("Failed to detect JSON columns. Please check your file.");
+        } finally {
+          setIsLoading(false);
+        }
+      },
+      error: () => {
+        setError("An error occurred while auto-detecting JSON columns.");
+        setIsLoading(false);
+      },
+    });
   };
 
   const handleAddColumn = () => {
@@ -136,7 +186,9 @@ const Home = () => {
           setSuccessMessage("File is ready to download!");
         } catch (err: unknown) {
           setError(
-            (err instanceof Error ? err.message : "An error occurred while processing the CSV.")
+            err instanceof Error
+              ? err.message
+              : "An error occurred while processing the CSV."
           );
         } finally {
           setIsLoading(false);
@@ -160,71 +212,87 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-gray-100 via-gray-50 to-gray-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex items-center justify-center p-8">
+    <div className="min-h-screen bg-gradient-to-r from-gray-100 via-gray-50 to-gray-200 dark:from-gray-900 dark:via-gray-800 dark:to-gray-700 flex flex-col items-center justify-center p-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeInOut" }}
         className="w-full max-w-2xl bg-white dark:bg-gray-800 shadow-xl rounded-2xl p-8 space-y-6"
       >
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-gray-200">
-            CSV JSON Flattener
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
-            Upload your CSV, specify JSON columns, and get a flattened CSV file.
-          </p>
-        </div>
+        <h1 className="text-4xl text-center font-normal">FlattCSV</h1>
+        <Accordion type="single" collapsible>
+          <AccordionItem value="instructions">
+            <AccordionTrigger className="text-2xl hover:no-underline">
+              How to use
+            </AccordionTrigger>
+            <AccordionContent>
+              <ul className="list-disc pl-4 space-y-2">
+                <li>Upload a CSV file using the drag-and-drop zone.</li>
+                <li>
+                  Click <span className="font-medium">&quot;Auto-detect JSON Columns&quot;</span> to identify JSON
+                  fields.
+                </li>
+                <li>Click <span className="font-medium">&quot;Process CSV&quot;</span> to flatten the file.</li>
+                <li>Download the processed file when it&apos;s ready!</li>
+              </ul>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
         {error && (
-          <AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="flex items-center space-x-2 text-red-600 bg-red-100 dark:bg-red-800 dark:text-red-200 p-4 rounded-md"
-            >
-              <AlertCircle className="h-5 w-5" />
-              <span>{error}</span>
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="flex items-center space-x-2 text-red-600 bg-red-100 dark:bg-red-800 dark:text-red-200 p-4 rounded-md"
+          >
+            <AlertCircle className="h-5 w-5" />
+            <span>{error}</span>
+          </motion.div>
         )}
 
-        {processedCSV && !error && (
-          <AnimatePresence>
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="flex items-center space-x-2 text-green-600 bg-green-100 dark:bg-green-800 dark:text-green-200 p-4 rounded-md"
-            >
-              <CheckCircle className="h-5 w-5" />
-              <span>{successMessage}</span>
-            </motion.div>
-          </AnimatePresence>
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="text-green-600 bg-green-100 dark:bg-green-800 dark:text-green-200 p-4 rounded-md flex items-center space-x-2"
+          >
+            <CheckCircle className="h-5 w-5" />
+            <span>{successMessage}</span>
+          </motion.div>
         )}
 
+        {/* Drag and Drop Zone */}
         <div
-          className={`border-dashed border-4 rounded-lg p-8 cursor-pointer ${
+          className={`border-dashed border-4 rounded-lg p-8 cursor-pointer transition-all duration-200 ${
             isDragging
-              ? "border-blue-500 bg-blue-50 dark:bg-blue-800"
+              ? "border-gray-400 bg-gray-100 dark:bg-blue-800"
               : "border-gray-300 bg-gray-100 dark:bg-gray-700"
           }`}
           onClick={() => document.getElementById("file-input")?.click()}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+              handleFileUpload(e.dataTransfer.files[0]);
+            }
+          }}
         >
           <p className="text-center text-gray-600 dark:text-gray-300 font-medium">
             {file
               ? "Selected File: " + file.name
-              : "Drag & drop your CSV file here, or click to select a file."}
+              : "Drag & drop your CSV file here, or click to select one"}
           </p>
           <input
-            id="file-input"
             type="file"
+            id="file-input"
             accept=".csv"
             onChange={handleFileInput}
             className="hidden"
@@ -232,86 +300,78 @@ const Home = () => {
         </div>
 
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              JSON Columns
-            </span>
-            <Button
-              onClick={handleAddColumn}
-              className="bg-blue-500 text-white hover:bg-blue-600 rounded-md py-1 px-3 flex items-center space-x-1"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Column</span>
-            </Button>
-          </div>
-
-          <AnimatePresence>
-            {columnNames.map((name, index) => (
-              <motion.div
+          <h3 className="text-gray-800 dark:text-gray-200 font-medium">
+            Specify JSON Columns
+          </h3>
+          <div className="space-y-2">
+            {columnNames.map((col, index) => (
+              <div
                 key={index}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.3, ease: "easeInOut" }}
-                className="flex items-center space-x-4"
+                className="flex items-center space-x-2 border-b pb-2"
               >
                 <Input
-                  type="text"
-                  value={name}
+                  value={col}
                   onChange={(e) =>
                     handleColumnNameChange(index, e.target.value)
                   }
-                  placeholder={`Column ${index + 1} Name`}
-                  className="border border-gray-300 dark:border-gray-600 rounded-lg p-2 w-full hover:shadow-sm focus:ring-blue-500"
+                  placeholder={`Column ${index + 1}`}
                 />
-                <Button
-                  variant="secondary"
-                  onClick={() => handleRemoveColumn(index)}
-                  className="bg-red-500 text-white hover:bg-red-600 rounded-md py-1 px-3 flex items-center space-x-1"
-                >
-                  <Trash className="h-4 w-4" />
-                  <span>Remove</span>
+                <Button size="icon" onClick={() => handleRemoveColumn(index)}>
+                  <Trash />
                 </Button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
-
-        <div className="space-y-4">
-          <Button
-            onClick={processCSV}
-            disabled={isLoading} // Disable button while loading
-            className={`w-full bg-blue-500 text-white hover:bg-blue-600 rounded-md py-2 transition ${
-              isLoading && "opacity-50 cursor-not-allowed"
-            }`}
-          >
-            {isLoading ? (
-              <div className="flex items-center justify-center space-x-2">
-                <Loader2 className="animate-spin h-5 w-5" />
-                <span>Processing...</span>
               </div>
-            ) : (
-              "Process CSV"
-            )}
-          </Button>
-          {processedCSV && (
-            <>
+            ))}
+            <div className="flex space-x-2">
               <Button
-                variant="secondary"
-                onClick={downloadCSV}
-                className="w-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md py-2 transition"
+                variant="outline"
+                onClick={handleAddColumn}
+                className="w-full"
               >
-                Download Processed CSV
+                <Plus className="mr-2" />
+                Add Column
               </Button>
-            </>
-          )}
+              <Button
+                variant="outline"
+                onClick={detectJSONColumns}
+                disabled={!file}
+                className="w-full"
+              >
+                <Wand className="mr-2" />
+                Auto-detect JSON Columns
+              </Button>
+            </div>
+          </div>
         </div>
 
-        <div className="text-center mt-6">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Created by <span className="font-semibold">Adhviklal Thoppe</span>
-          </p>
+        <div className="flex space-x-4">
+          <Button
+            disabled={isLoading}
+            onClick={processCSV}
+            className="flex items-center w-full"
+          >
+            {isLoading && <Loader2 className="animate-spin mr-2" />}
+            Process CSV
+          </Button>
+          <Button
+            variant="outline"
+            disabled={!processedCSV}
+            onClick={downloadCSV}
+            className="w-full"
+          >
+            Download CSV
+          </Button>
+          <Button
+            variant="outline"
+            onClick={resetFields}
+            className="flex items-center w-full"
+          >
+            <RotateCw className="mr-2" />
+            Reset
+          </Button>
         </div>
+        <p className="text-gray-500 dark:text-gray-400 mt-8 text-sm text-center">
+          Created by: Adhviklal Thoppe
+        </p>
       </motion.div>
     </div>
   );
